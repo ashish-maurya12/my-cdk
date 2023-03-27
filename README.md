@@ -1,2 +1,2 @@
 # my-cdk
-my first aws cdk 
+my first aws cdk application.
