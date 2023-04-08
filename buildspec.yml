@@ -1,24 +1,39 @@
+# ~/environment/sam-app/buildspec.yml
+
 version: 0.2
 phases:
+  install:
+    runtime-versions:
+      java: corretto11
+    commands:
+      # Install packages or any pre-reqs in this phase.
+      # Upgrading SAM CLI to latest version
+      - pip3 install --upgrade aws-sam-cli
+      - sam --version
+      
   pre_build:
     commands:
-      - echo Logging in to Amazon ECR...
-      - aws --version
-      #     - $(aws ecr get-login --region us east-1 --no-include-email)
-      - aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 777391067329.dkr.ecr.us-east-1.amazonaws.com
-      - REPOSITORY_URI=777391067329.dkr.ecr.us-east-1.amazonaws.com/inovcaresrepo
-      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
-      - IMAGE_TAG=${COMMIT_HASH:=latest}
+      # Run tests, lint scripts or any other pre-build checks.
+      - pwd
+      - ls -lah
+      - cd HelloWorldFunction
+      - mvn test
+      - java -version
+      - mvn -version
+
   build:
     commands:
-      - echo Build started on `date`
-      - echo Building the Docker image...          
-      - docker build -t 777391067329.dkr.ecr.us-east-1.amazonaws.com/inovcaresrepo:latest .
-      - docker tag 777391067329.dkr.ecr.us-east-1.amazonaws.com/inovcaresrepo:latest 777391067329.dkr.ecr.us-east-1.amazonaws.com/inovcaresrepo:latest-new
+      # Use Build phase to build your artifacts (compile, etc.)
+      - cd ..
+      - sam build
+
   post_build:
     commands:
-      - echo Build completed on `date`
-      - docker push 777391067329.dkr.ecr.us-east-1.amazonaws.com/inovcaresrepo:latest
-      - eval $(aws sts assume-role --role-arn ECS_DEPLOY_ROLE --role-session-name AWSCLI-Session | jq -r '.Credentials | "export AWS_ACCESS_KEY_ID=\(.AccessKeyId)\nexport AWS_SECRET_ACCESS_KEY=\(.SecretAccessKey)\nexport AWS_SESSION_TOKEN=\(.SessionToken)\n"')
-      - aws sts get-caller-identity
-      - aws ecs update-service --cluster arn:aws:ecs:us-east-1:777391067329:cluster
+      # Use Post-Build for notifications, git tags, upload artifacts to S3
+      - sam package --s3-bucket $PACKAGE_BUCKET --output-template-file packaged.yaml
+
+artifacts:
+  discard-paths: yes
+  files:
+    # List of local artifacts that will be passed down the pipeline
+    - packaged.yaml
